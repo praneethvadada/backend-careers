@@ -1,0 +1,136 @@
+[
+  {
+    "id": "bd-sales-internship-2026",
+    "title": "Business Development & Sales (Tech/Software) - Internship",
+    "type": "internship",
+    "category": "sales",
+    "status": "open",
+    "location": "Work From Home",
+    "duration": "6 months",
+    "startDate": "21st Apr'26",
+    "endDate": "12th Jun'26",
+    "description": "Join our founding team as a Business Development & Sales Intern and help us identify and pitch custom software solutions to businesses and startups.",
+    "responsibilities": [
+      "Lead sourcing: Identify and collect contact details (phone/email) of small business owners, startup founders, and niche professionals who need custom software or websites.",
+      "Cold outreach & calling: Conduct daily outbound calls and send personalized LinkedIn/WhatsApp messages to pitch our software services.",
+      "Requirement gathering: Engage with potential clients to understand their technical needs and schedule demo meetings for the founding team.",
+      "CRM management: Maintain a database of all leads contacted and follow up consistently until a project is secured.",
+      "Market research: Identify trending niches (like GST tools or AI content tools) where businesses are currently looking for software solutions."
+    ],
+    "requiredSkills": [
+      "Cold Calling",
+      "Effective Communication",
+      "Interpersonal skills",
+      "Lead Generation",
+      "LinkedIn Marketing",
+      "Software Development Life Cycle (SDLC)"
+    ],
+    "requirements": [
+      "Available for work from home job/internship",
+      "Can start between 21st Apr'26 and 12th Jun'26",
+      "Available for duration of 6 months",
+      "Have relevant skills and interests",
+      "Women wanting to start/restart their career can also apply"
+    ],
+    "otherRequirements": [
+      "Need someone with a thick skin who is not afraid of rejection on calls",
+      "Excellent verbal English/local language skills and a result-oriented mindset are mandatory"
+    ],
+    "perks": [
+      "Certificate",
+      "Letter of recommendation",
+      "Flexible work hours"
+    ],
+    "eligibility": "Open to freshers and experienced professionals with relevant skills"
+  },
+  {
+    "id": "frontend-internship-2026",
+    "title": "Frontend Developer - Internship",
+    "type": "internship",
+    "category": "tech",
+    "status": "closed",
+    "location": "Work From Home",
+    "duration": "3-6 months",
+    "startDate": "21st Apr'26",
+    "endDate": "12th Jun'26",
+    "description": "Build beautiful, responsive web applications using React and TypeScript. Work on real projects that will be used by thousands.",
+    "responsibilities": [
+      "Develop responsive user interfaces using React and TypeScript",
+      "Collaborate with designers to implement pixel-perfect designs",
+      "Write clean, maintainable, and well-documented code",
+      "Participate in code reviews and contribute to best practices",
+      "Test and debug frontend applications"
+    ],
+    "requiredSkills": [
+      "React",
+      "TypeScript",
+      "HTML/CSS",
+      "JavaScript",
+      "REST APIs",
+      "Git"
+    ],
+    "requirements": [
+      "Available for work from home internship",
+      "Can start between 21st Apr'26 and 12th Jun'26",
+      "Available for 3-6 months",
+      "Strong foundation in JavaScript and React"
+    ],
+    "otherRequirements": [
+      "Portfolio or GitHub profile required",
+      "Self-motivated and eager to learn"
+    ],
+    "perks": [
+      "Certificate",
+      "Letter of recommendation",
+      "Flexible work hours",
+      "Mentorship from senior developers"
+    ],
+    "eligibility": "Students and recent graduates"
+  },
+  {
+    "id": "technical-support-intern",
+    "title": "Technical Support Engineer",
+    "type": "internship",
+    "category": "tech",
+    "status": "open",
+    "location": "Remote",
+    "duration": "6 Months",
+    "startDate": "Immediate",
+    "endDate": "6 Months",
+    "salary": "",
+    "description": "A Technical Support Engineer provides technical assistance to customers, resolves product issues, troubleshoots incidents, and ensures smooth product usage.",
+    "responsibilities": [
+      "Respond to customer technical issues via email",
+      "chat",
+      "or calls",
+      "Diagnose",
+      "troubleshoot",
+      "and resolve product problems\nHandle support tickets and maintain SLAs\nEscalate complex issues to engineering when needed\nReproduce bugs and document issues clearly\nAssist customers with onboarding and product setup\nMonitor recurring issues and suggest product improvements\nMaintain knowledge base articles and support documentation\nSupport deployments",
+      "upgrades",
+      "and configuration tasks\nProvide basic training or guidance to users"
+    ],
+    "requiredSkills": [
+      "Strong troubleshooting and problem-solving skills\nUnderstanding of software applications",
+      "APIs",
+      "databases",
+      "and logs\nFamiliarity with ticketing systems (Jira",
+      "Zendesk",
+      "Freshdesk",
+      "etc.)\nBasic Linux",
+      "networking",
+      "and SQL knowledge\nGood communication and customer-handling skills\nAbility to prioritize and manage multiple issues"
+    ],
+    "requirements": [
+      "Bachelor’s degree in Computer Science",
+      "IT",
+      "or related field\nExperience in SaaS or cloud support preferred\nKnowledge of cybersecurity support is a plus"
+    ],
+    "otherRequirements": [
+      "no"
+    ],
+    "perks": [
+      "FullTimeRoleOffer"
+    ],
+    "eligibility": "Pursuing Bachelor’s degree in Computer Science, IT, or related field"
+  }
+]

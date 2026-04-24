@@ -1,0 +1,6 @@
+[
+  {"id":"college-1","name":"IIT Madras","type":"college","country":"India","state":"Tamil Nadu","district":"Chennai"},
+  {"id":"college-2","name":"IIT Delhi","type":"college","country":"India","state":"Delhi","district":"New Delhi"},
+  {"id":"college-3","name":"NIT Trichy","type":"college","country":"India","state":"Tamil Nadu","district":"Tiruchirappalli"},
+  {"id":"college-4","name":"St. Stephen's College","type":"college","country":"India","state":"Delhi","district":"New Delhi"}
+]

@@ -1,0 +1,6 @@
+[
+  {"id":"school-1","name":"Delhi Public School, New Delhi","type":"school","country":"India","state":"Delhi","district":"New Delhi"},
+  {"id":"school-2","name":"Narayana High School, Hyderabad","type":"school","country":"India","state":"Telangana","district":"Hyderabad"},
+  {"id":"school-3","name":"St. Xavier's School, Kolkata","type":"school","country":"India","state":"West Bengal","district":"Kolkata"},
+  {"id":"school-4","name":"Kendriya Vidyalaya, Chennai","type":"school","country":"India","state":"Tamil Nadu","district":"Chennai"}
+]
