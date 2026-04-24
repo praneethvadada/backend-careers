@@ -88,15 +88,42 @@ const upload = multer({
   },
 });
 
+// const transporter = nodemailer.createTransport({
+//   host: process.env.SMTP_HOST,
+//   port: Number(process.env.SMTP_PORT || 465),
+//   secure: String(process.env.SMTP_SECURE || 'true') === 'true',
+//   auth: {
+//     user: process.env.SMTP_USER,
+//     pass: process.env.SMTP_PASS,
+//   },
+// });
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
-  secure: String(process.env.SMTP_SECURE || 'true') === 'true',
+  secure: String(process.env.SMTP_SECURE || "true") === "true",
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
+
+// 🔍 Log config (without password)
+console.log("[SMTP] Initializing transporter...");
+console.log("[SMTP] Host:", process.env.SMTP_HOST);
+console.log("[SMTP] Port:", process.env.SMTP_PORT);
+console.log("[SMTP] Secure:", process.env.SMTP_SECURE);
+console.log("[SMTP] User:", process.env.SMTP_USER);
+
+// 🧪 Verify connection
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("[SMTP] Connection failed:", error);
+  } else {
+    console.log("[SMTP] Server is ready to send emails");
+  }
+});
+
 
 async function ensureSchema() {
   await db.query(`
@@ -678,11 +705,18 @@ app.get('/api/public/jobs/:id', async (req, res) => {
 app.post('/api/public/apply', upload.single('resume_file'), async (req, res) => {
   try {
     const { errors, cleaned } = validateApplicationPayload(req.body || {});
+    // if (errors.length) {
+    //   return res.status(400).json({
+    //     message: 'Invalid application input',
+    //     errors,
+    //   });
     if (errors.length) {
-      return res.status(400).json({
-        message: 'Invalid application input',
-        errors,
-      });
+  console.warn("[APPLY] Validation failed:", errors);
+  return res.status(400).json({
+    message: 'Invalid application input',
+    errors,
+  });
+
     }
 
     const marketingScenarioAnswers = toMultiline('marketing_question_', req.body);
