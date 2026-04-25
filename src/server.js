@@ -71,7 +71,7 @@ const corsOptions = {
     callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: false,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 204,
   maxAge: 86400,
@@ -413,25 +413,249 @@ async function seedCatalogIfNeeded() {
   }
 }
 
-async function sendCandidateStatusEmail({ to, name, jobTitle, status, note }) {
-  const readableStatus = status.replace(/_/g, ' ');
-  const text = [
-    `Hi ${name},`,
-    '',
-    `Your application status for ${jobTitle} has been updated to: ${readableStatus}.`,
-    note ? `Update note from HR: ${note}` : 'No extra note was provided by HR for this update.',
-    '',
-    'If you need help, please contact hr@trivonss.com.',
-    '',
-    'Regards,',
-    'Trivon Hiring Team',
-  ].join('\n');
+// ─── Email HTML Builders ─────────────────────────────────────────────────────
 
+const BRAND_COLOR = '#1a2e5a';
+const ACCENT_COLOR = '#e8272a';
+
+function emailWrapper(bodyContent) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trivon Careers</title></head>
+<body style="margin:0;padding:0;background:#f0f2f5;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f2f5;">
+<tr><td align="center" style="padding:28px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #dde2ec;">
+<!-- HEADER -->
+<tr><td style="background:#ffffff;padding:0;border-bottom:3px solid ${ACCENT_COLOR};">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="padding:22px 32px;">
+      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;color:#9ca3af;text-transform:uppercase;">TRIVON SOFTWARE SOLUTIONS PRIVATE LIMITED</p>
+      <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:${BRAND_COLOR};letter-spacing:0.5px;">Careers &amp; Recruitment</p>
+    </td>
+    <td align="right" style="padding:22px 32px;">
+      <span style="border:1.5px solid ${BRAND_COLOR};color:${BRAND_COLOR};font-size:10px;padding:5px 12px;border-radius:2px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">HIRING</span>
+    </td>
+  </tr></table>
+</td></tr>
+<!-- BODY -->
+<tr><td style="padding:36px 32px;">${bodyContent}</td></tr>
+<!-- FOOTER -->
+<tr><td style="background:#f8f9fb;border-top:1px solid #e4e8f0;padding:18px 32px;">
+  <p style="margin:0;font-size:12px;color:#6b7280;text-align:center;">Trivon Software Solutions Private Limited &bull; <a href="mailto:hr@trivonssn.com" style="color:${BRAND_COLOR};">hr@trivonssn.com</a> &bull; <a href="https://trivonssn.com" style="color:${BRAND_COLOR};">trivonssn.com</a></p>
+  <p style="margin:5px 0 0;font-size:11px;color:#9ca3af;text-align:center;">This is an automated message. Please do not reply to this email directly.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function statusMeta(status) {
+  const map = {
+    submitted:           { label: 'Application Received',      color: '#2563eb', bg: '#eff6ff', headline: 'Your application is under review.' },
+    shortlisted:         { label: 'Shortlisted',               color: '#16a34a', bg: '#f0fdf4', headline: 'Congratulations — you have been shortlisted!' },
+    interview_scheduled: { label: 'Interview Scheduled',       color: '#7c3aed', bg: '#f5f3ff', headline: 'Your interview has been scheduled.' },
+    selected:            { label: 'Selected',                  color: '#15803d', bg: '#dcfce7', headline: 'We are thrilled to offer you a position at Trivon!' },
+    rejected:            { label: 'Application Not Progressed', color: '#dc2626', bg: '#fef2f2', headline: 'Thank you for your interest in Trivon.' },
+    on_hold:             { label: 'Application On Hold',       color: '#b45309', bg: '#fffbeb', headline: 'Your application is currently on hold.' },
+  };
+  return map[status] || { label: status.replace(/_/g, ' '), color: BRAND_COLOR, bg: '#f0f2f5', headline: 'Your application status has been updated.' };
+}
+
+function buildStatusUpdateHtml(name, jobTitle, status, note) {
+  const meta = statusMeta(status);
+  const isRejected = status === 'rejected';
+  const isSelected = status === 'selected';
+
+  const noteSection = note
+    ? `<div style="background:#f8fafc;border-left:4px solid ${meta.color};border-radius:0 8px 8px 0;padding:16px 20px;margin:24px 0;">
+         <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6b7a99;">Note from HR</p>
+         <p style="margin:0;font-size:15px;color:#1a2e5a;line-height:1.6;">${note}</p>
+       </div>`
+    : '';
+
+  const tailMessage = isRejected
+    ? `<p style="font-size:15px;color:#374151;line-height:1.7;">We sincerely appreciate the time and effort you invested in applying for the <strong>${jobTitle}</strong> role. While we are unable to move forward with your application at this time, we were genuinely impressed by your profile.</p>
+       <p style="font-size:15px;color:#374151;line-height:1.7;">We will keep your profile on file and reach out if a suitable opportunity arises in the future. We wish you the very best in your career journey!</p>`
+    : isSelected
+    ? `<p style="font-size:15px;color:#374151;line-height:1.7;">Welcome to the Trivon family! Our HR team will contact you shortly with the next steps including documentation and onboarding details. We are excited to have you on board.</p>`
+    : `<p style="font-size:15px;color:#374151;line-height:1.7;">Our team will be in touch with further updates. If you have any questions, feel free to reach out to us at <a href="mailto:hr@trivonssn.com" style="color:${BRAND_COLOR};font-weight:600;">hr@trivonssn.com</a>.</p>`;
+
+  const body = `
+    <p style="margin:0 0 4px;font-size:14px;color:#6b7a99;">Hi <strong style="color:#1a2e5a;">${name}</strong>,</p>
+    <h2 style="margin:12px 0 8px;font-size:24px;color:#1a2e5a;font-weight:800;">${meta.headline}</h2>
+
+    <div style="display:inline-block;background:${meta.bg};border:1.5px solid ${meta.color};border-radius:20px;padding:6px 18px;margin:8px 0 24px;">
+      <span style="font-size:13px;font-weight:700;color:${meta.color};">${meta.label}</span>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;margin:0 0 20px;">
+      <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #e8edf5;">
+          <span style="font-size:12px;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Position</span><br>
+          <span style="font-size:15px;color:#1a2e5a;font-weight:700;">${jobTitle}</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 18px;">
+          <span style="font-size:12px;color:#6b7a99;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Status Updated</span><br>
+          <span style="font-size:14px;color:#374151;">${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}</span>
+        </td>
+      </tr>
+    </table>
+
+    ${noteSection}
+    ${tailMessage}
+    <p style="margin:24px 0 0;font-size:15px;color:#374151;">Warm regards,<br><strong style="color:#1a2e5a;">Trivon Hiring Team</strong></p>
+  `;
+  return emailWrapper(body);
+}
+
+function buildApplicationReceivedHtml(name, jobTitle, jobId) {
+  const body = `
+    <p style="margin:0 0 4px;font-size:14px;color:#6b7a99;">Hi <strong style="color:#1a2e5a;">${name}</strong>,</p>
+    <h2 style="margin:12px 0 8px;font-size:24px;color:#1a2e5a;font-weight:800;">We have received your application.</h2>
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 20px;">Thank you for applying to <strong>${jobTitle}</strong> at Trivon Software Solutions. We are excited to learn more about you!</p>
+
+    <div style="background:#eff6ff;border-radius:10px;padding:20px 24px;margin:0 0 24px;border:1px solid #bfdbfe;">
+      <p style="margin:0 0 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#2563eb;">Application Details</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151;"><strong>Applicant:</strong></td><td style="font-size:14px;color:#1a2e5a;font-weight:600;">${name}</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151;"><strong>Role:</strong></td><td style="font-size:14px;color:#1a2e5a;font-weight:600;">${jobTitle}</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151;"><strong>Reference ID:</strong></td><td style="font-size:13px;color:#6b7a99;">${jobId}</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151;"><strong>Submitted:</strong></td><td style="font-size:14px;color:#374151;">${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })}</td></tr>
+      </table>
+    </div>
+
+    <p style="font-size:15px;color:#374151;line-height:1.7;">Our hiring team will carefully review your application and get back to you regarding the next steps. This process typically takes <strong>5–7 business days</strong>.</p>
+    <p style="font-size:15px;color:#374151;line-height:1.7;">In the meantime, feel free to reach out to us at <a href="mailto:hr@trivonssn.com" style="color:#1a2e5a;font-weight:600;">hr@trivonssn.com</a> if you have any questions.</p>
+    <p style="font-size:15px;color:#374151;line-height:1.7;">We wish you the very best and look forward to connecting with you!</p>
+    <p style="margin:24px 0 0;font-size:15px;color:#374151;">Warm regards,<br><strong style="color:#1a2e5a;">Trivon Hiring Team</strong></p>
+  `;
+  return emailWrapper(body);
+}
+
+function buildAdminNotificationHtml(cleaned, customAnswers, marketingAnswers, resumeFilename, job) {
+  // Build custom field label map from job definition
+  const customFields = (job && Array.isArray(job.customFields)) ? job.customFields : [];
+  const labelMap = {};
+  for (const cf of customFields) {
+    if (cf.id && cf.label) labelMap[cf.id] = cf.label;
+  }
+
+  // Education rows
+  const eduRows = (cleaned.education || []).map((e, i) =>
+    `<tr style="background:${i % 2 === 0 ? '#f8fafc' : '#fff'}">
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.educationLevel || ''}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.degree || ''}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.field || ''}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.institution || ''}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.graduationYear || ''}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${e.gpa || ''}</td>
+    </tr>`
+  ).join('');
+
+  const eduSection = cleaned.education && cleaned.education.length > 0
+    ? `<h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#1a2e5a;margin:28px 0 10px;">Education</h3>
+       <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8edf5;border-radius:8px;overflow:hidden;">
+         <thead><tr style="background:#1a2e5a;">
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">Level</th>
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">Degree</th>
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">Field</th>
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">Institution</th>
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">Year</th>
+           <th style="padding:9px 12px;font-size:11px;color:#a8c0e8;text-align:left;font-weight:600;">GPA</th>
+         </tr></thead>
+         <tbody>${eduRows}</tbody>
+       </table>`
+    : '';
+
+  // Experience rows
+  const expSection = (cleaned.experience || []).map((e) =>
+    `<div style="border:1px solid #e8edf5;border-radius:8px;padding:14px 16px;margin:0 0 10px;background:#f8fafc;">
+       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1a2e5a;">${e.jobTitle || ''}</p>
+       <p style="margin:0 0 8px;font-size:13px;color:#6b7a99;">${e.company || ''} &bull; ${e.duration || ''}</p>
+       <p style="margin:0;font-size:13px;color:#374151;">${e.description || ''}</p>
+     </div>`
+  ).join('');
+
+  // Custom Q&A rows
+  const customQA = Object.entries(customAnswers).map(([key, val]) => {
+    const label = labelMap[key] || key;
+    return `<tr>
+      <td style="padding:10px 14px;font-size:13px;font-weight:600;color:#1a2e5a;border-bottom:1px solid #e8edf5;background:#f8fafc;width:40%;vertical-align:top;">${label}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${val || 'N/A'}</td>
+    </tr>`;
+  }).join('');
+
+  const customSection = Object.keys(customAnswers).length
+    ? `<h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#1a2e5a;margin:28px 0 10px;">Custom Questions &amp; Answers</h3>
+       <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8edf5;border-radius:8px;overflow:hidden;"><tbody>${customQA}</tbody></table>`
+    : '';
+
+  const marketingSection = marketingAnswers && marketingAnswers !== 'Not provided'
+    ? `<h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#1a2e5a;margin:28px 0 10px;">Scenario / Marketing Answers</h3>
+       <div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:13px;color:#374151;white-space:pre-wrap;">${marketingAnswers}</div>`
+    : '';
+
+  const additionalSection = cleaned.additionalInfo
+    ? `<h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#1a2e5a;margin:28px 0 10px;">Additional Information</h3>
+       <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;font-size:13px;color:#374151;">${cleaned.additionalInfo}</div>`
+    : '';
+
+  const body = `
+    <div style="background:#e8272a;border-radius:8px;padding:14px 20px;margin:0 0 24px;">
+      <p style="margin:0;font-size:18px;font-weight:800;color:#fff;">New Job Application Received</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8edf5;border-radius:8px;overflow:hidden;margin:0 0 8px;">
+      <tr style="background:#f0f4ff;"><td colspan="2" style="padding:10px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#2563eb;">Job Details</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;width:35%;">Job ID</td><td style="padding:9px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${cleaned.jobId}</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;">Job Title</td><td style="padding:9px 14px;font-size:14px;font-weight:700;color:#1a2e5a;border-bottom:1px solid #e8edf5;">${cleaned.jobTitle}</td></tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8edf5;border-radius:8px;overflow:hidden;margin:16px 0 0;">
+      <tr style="background:#f0f4ff;"><td colspan="2" style="padding:10px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#2563eb;">Applicant Details</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;width:35%;">Full Name</td><td style="padding:9px 14px;font-size:14px;font-weight:700;color:#1a2e5a;border-bottom:1px solid #e8edf5;">${cleaned.fullName}</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;">Email</td><td style="padding:9px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;"><a href="mailto:${cleaned.email}" style="color:#1a2e5a;">${cleaned.email}</a></td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;">Phone</td><td style="padding:9px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${cleaned.phone}</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;">Alt. Phone</td><td style="padding:9px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${cleaned.alternatePhone || 'Not provided'}</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;border-bottom:1px solid #e8edf5;">City</td><td style="padding:9px 14px;font-size:13px;color:#374151;border-bottom:1px solid #e8edf5;">${cleaned.city || 'Not provided'}</td></tr>
+      <tr><td style="padding:9px 14px;font-size:13px;color:#6b7a99;font-weight:600;">Resume</td><td style="padding:9px 14px;font-size:13px;color:#374151;">${cleaned.resumeLink ? `<a href="${cleaned.resumeLink}" style="color:#1a2e5a;">Open Resume Link</a>` : resumeFilename ? `${resumeFilename} (attached)` : 'Not provided'}</td></tr>
+    </table>
+
+    ${eduSection}
+    ${expSection ? `<h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#1a2e5a;margin:28px 0 10px;">Experience</h3>${expSection}` : ''}
+    ${customSection}
+    ${marketingSection}
+    ${additionalSection}
+  `;
+  return emailWrapper(body);
+}
+
+// ─── Email Senders ───────────────────────────────────────────────────────────
+
+async function sendCandidateStatusEmail({ to, name, jobTitle, status, note }) {
+  const html = buildStatusUpdateHtml(name, jobTitle, status, note);
+  const readableStatus = status.replace(/_/g, ' ');
   await transporter.sendMail({
     from: `Trivon Careers <${MAIL_FROM}>`,
     to,
-    subject: `Application Status Update | ${jobTitle}`,
-    text,
+    subject: `[Trivon Careers] Application Status Update — ${jobTitle}`,
+    text: `Hi ${name},\n\nYour application for ${jobTitle} has been updated to: ${readableStatus}.\n${note ? `\nHR Note: ${note}\n` : ''}\nRegards,\nTrivon Hiring Team`,
+    html,
+  });
+}
+
+async function sendApplicationReceivedEmail({ to, name, jobTitle, jobId }) {
+  const html = buildApplicationReceivedHtml(name, jobTitle, jobId);
+  await transporter.sendMail({
+    from: `Trivon Careers <${MAIL_FROM}>`,
+    to,
+    subject: `[Trivon Careers] Application Received — ${jobTitle}`,
+    text: `Hi ${name},\n\nWe have received your application for ${jobTitle} at Trivon Software Solutions.\n\nWe will review it and get back to you within 5-7 business days.\n\nWarm regards,\nTrivon Hiring Team`,
+    html,
   });
 }
 
@@ -465,6 +689,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const namePattern = /^[a-zA-Z .'-]+$/;
 const yearPattern = /^\d{4}$/;
 const phonePattern = /^\d{10}$/;
+const gpaPattern = /^\d{1,3}(\.\d{1,2})?%?$/;
 
 function safeString(value) {
   return String(value || '').trim();
@@ -711,11 +936,11 @@ app.post('/api/public/apply', upload.single('resume_file'), async (req, res) => 
     //     errors,
     //   });
     if (errors.length) {
-  console.warn("[APPLY] Validation failed:", errors);
-  return res.status(400).json({
-    message: 'Invalid application input',
-    errors,
-  });
+      console.warn("[APPLY] Validation failed:", errors);
+      return res.status(400).json({
+        message: 'Invalid application input',
+        errors,
+      });
 
     }
 
@@ -724,32 +949,10 @@ app.post('/api/public/apply', upload.single('resume_file'), async (req, res) => 
       .filter(([key]) => key.startsWith('custom_field_'))
       .reduce((acc, [key, value]) => ({ ...acc, [key.replace('custom_field_', '')]: String(value || '') }), {});
 
-    const text = [
-      'New Job Application Received',
-      '',
-      `Job ID: ${cleaned.jobId}`,
-      `Job Title: ${cleaned.jobTitle}`,
-      `Applicant Name: ${cleaned.fullName}`,
-      `Applicant Email: ${cleaned.email}`,
-      `Applicant Phone: ${cleaned.phone}`,
-      `Alternate Phone: ${cleaned.alternatePhone || 'Not provided'}`,
-      `City: ${cleaned.city || 'Not provided'}`,
-      '',
-      `Resume Name: ${cleaned.resumeName || req.file?.originalname || 'Not provided'}`,
-      `Resume Link: ${cleaned.resumeLink || 'Not provided'}`,
-      '',
-      'Scenario and role-specific answers:',
-      marketingScenarioAnswers,
-      '',
-      'Additional Information:',
-      cleaned.additionalInfo || 'Not provided',
-      '',
-      'Custom Fields Answers:',
-      Object.keys(customAnswers).length ? JSON.stringify(customAnswers, null, 2) : 'Not provided',
-      '',
-      'Application Summary:',
-      cleaned.applicationSummary || 'Not provided',
-    ].join('\n');
+    // Fetch job for custom field label resolution
+    const job = await getJobById(cleaned.jobId).catch(() => null);
+    const resumeFilename = req.file?.originalname || cleaned.resumeName || null;
+    const adminHtml = buildAdminNotificationHtml(cleaned, customAnswers, marketingScenarioAnswers, resumeFilename, job);
 
     const attachments = [];
     if (req.file) {
@@ -763,9 +966,10 @@ app.post('/api/public/apply', upload.single('resume_file'), async (req, res) => 
     await transporter.sendMail({
       from: `Trivon Careers <${MAIL_FROM}>`,
       to: MAIL_TO,
-      subject: `Job Application | ${cleaned.jobTitle} | ${cleaned.fullName}`,
+      subject: `[New Application] ${cleaned.jobTitle} — ${cleaned.fullName}`,
       replyTo: cleaned.email,
-      text,
+      text: `New application received from ${cleaned.fullName} for ${cleaned.jobTitle}. Email: ${cleaned.email}`,
+      html: adminHtml,
       attachments,
     });
 
@@ -805,6 +1009,18 @@ app.post('/api/public/apply', upload.single('resume_file'), async (req, res) => 
         'submitted',
       ],
     );
+
+    // Send confirmation email to the candidate
+    try {
+      await sendApplicationReceivedEmail({
+        to: cleaned.email,
+        name: cleaned.fullName,
+        jobTitle: cleaned.jobTitle,
+        jobId: cleaned.jobId,
+      });
+    } catch (confirmErr) {
+      console.error('[EMAIL] Candidate confirmation email failed:', confirmErr);
+    }
 
     res.json({ ok: true, message: 'Application submitted successfully' });
   } catch (error) {
